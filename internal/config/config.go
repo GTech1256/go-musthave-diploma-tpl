@@ -4,6 +4,8 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"strconv"
+	"time"
 )
 
 type Config struct {
@@ -14,9 +16,15 @@ type Config struct {
 
 	// AccrualSystemAddress - Флаг -k=<ЗНАЧЕНИЕ> При наличии ключа агент должен вычислять хеш и передавать в HTTP-заголовке запроса с именем HashSHA256.
 	AccrualSystemAddress *string
+
+	JWTSecretKey *string
+
+	JWTTokenExp *time.Duration
 }
 
 const EmptyStringKey = ""
+const SecretKey = "s3cr3t"
+const TokenExp = 3
 
 var ErrRequireVariable = errors.New("переменная окружения обязательна")
 
@@ -34,6 +42,11 @@ func (c *Config) Load() error {
 		databaseURIEnv, databaseURIEnvPresent                   = os.LookupEnv("DATABASE_URI")
 		accrualSystemAddress                                    = command.String("r", EmptyStringKey, "адрес системы расчёта начислений")
 		accrualSystemAddressEnv, accrualSystemAddressEnvPresent = os.LookupEnv("ACCRUAL_SYSTEM_ADDRESS")
+		// JWT
+		secretKey                               = command.String("k", SecretKey, "секретный ключ")
+		secretKeyEnv, secretKeyEnvPresent       = os.LookupEnv("SECRET_KEY")
+		tokenExpired                            = command.Int("e", TokenExp, "кол-во часов, после которого токен протухает")
+		tokenExpiredEnv, tokenExpiredEnvPresent = os.LookupEnv("TOKEN_EXPIRED")
 	)
 
 	c.Port = port
@@ -59,6 +72,20 @@ func (c *Config) Load() error {
 	if c.AccrualSystemAddress == nil {
 		return ErrRequireVariable
 	}
+
+	c.JWTSecretKey = secretKey
+	if secretKeyEnvPresent {
+		c.JWTSecretKey = &secretKeyEnv
+	}
+
+	JWTTokenExp := time.Hour * time.Duration(*tokenExpired)
+	if tokenExpiredEnvPresent {
+		atoi, err := strconv.Atoi(tokenExpiredEnv)
+		if err == nil {
+			JWTTokenExp = time.Hour * time.Duration(atoi)
+		}
+	}
+	c.JWTTokenExp = &JWTTokenExp
 
 	// Тесты запускают несколько раз метод Load.
 	// А несколько раз flag.Parse() нельзя вызывать

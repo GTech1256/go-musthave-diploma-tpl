@@ -50,9 +50,7 @@ func NewUserComposite(cfg *config.Config, logger logging.Logger) (*UsersComposit
 		return nil, ErrNoSQLConnection
 	}
 
-	// TODO: From config
-	t := time.Hour * 3
-	jwtClient := jwt2.NewJwt(t, "secret")
+	jwtClient := jwt2.NewJwt(*cfg.JWTTokenExp, *cfg.JWTSecretKey)
 	storage := userRepository.NewStorage(sql.DB, logger)
 
 	service := userService.NewUserService(logger, storage, cfg)
